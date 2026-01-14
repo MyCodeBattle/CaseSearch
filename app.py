@@ -109,8 +109,12 @@ def search_stream():
         # 在后台线程中执行搜索
         def run_search():
             nonlocal all_results
-            all_results = search_similar_cases(query, cases, progress_callback)
-            progress_queue.put({'done': True})
+            try:
+                all_results = search_similar_cases(query, cases, progress_callback)
+            except Exception as e:
+                print(f"Search thread failed: {e}")
+            finally:
+                progress_queue.put({'done': True})
         
         search_thread = threading.Thread(target=run_search)
         search_thread.start()
@@ -124,7 +128,9 @@ def search_stream():
                 
                 yield f"data: {json.dumps({'type': 'progress', 'completed': msg['completed'], 'total': msg['total'], 'batch_count': len(msg['batch_results'])})}\n\n"
             except queue.Empty:
-                break
+                # 发送保活信号，防止连接超时
+                yield ": keep-alive\n\n"
+                continue
         
         search_thread.join()
         

@@ -202,30 +202,21 @@ def search_similar_cases(query: str, cases: list[dict], progress_callback=None) 
     all_results = []
     completed_count = 0
     
-    # 使用线程池并发处理
-    with ThreadPoolExecutor(max_workers=min(5, total_batches)) as executor:
-        # 提交所有任务
-        future_to_batch = {
-            executor.submit(search_similar_in_batch, query, batch, top_k): i 
-            for i, batch in enumerate(batches, 1)
-        }
-        
-        # 收集结果（按完成顺序）
-        for future in as_completed(future_to_batch):
-            batch_idx = future_to_batch[future]
-            try:
-                batch_results = future.result()
-                all_results.extend(batch_results)
-                completed_count += 1
-                print(f"批次 {batch_idx}/{total_batches} 完成，获得 {len(batch_results)} 个结果")
-                
-                # 调用进度回调
-                if progress_callback:
-                    progress_callback(completed_count, total_batches, batch_results)
-            except Exception as e:
-                completed_count += 1
-                print(f"批次 {batch_idx} 处理出错: {e}")
-                if progress_callback:
-                    progress_callback(completed_count, total_batches, [])
+    # 串行处理（适应 Render 免费版单线程限制）
+    for i, batch in enumerate(batches, 1):
+        try:
+            batch_results = search_similar_in_batch(query, batch, top_k)
+            all_results.extend(batch_results)
+            completed_count += 1
+            print(f"批次 {i}/{total_batches} 完成，获得 {len(batch_results)} 个结果")
+            
+            # 调用进度回调
+            if progress_callback:
+                progress_callback(completed_count, total_batches, batch_results)
+        except Exception as e:
+            completed_count += 1
+            print(f"批次 {i} 处理出错: {e}")
+            if progress_callback:
+                progress_callback(completed_count, total_batches, [])
     
     return all_results
