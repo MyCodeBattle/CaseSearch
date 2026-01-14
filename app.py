@@ -7,7 +7,11 @@ import queue
 import threading
 from io import BytesIO
 from datetime import datetime
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, Response, send_file
+
+# 加载环境变量 (.env)
+load_dotenv()
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from modules.case_loader import load_config, get_available_types, load_cases_by_type, get_cases_summary

@@ -1,6 +1,6 @@
-# 配置文件 (包含敏感信息)
-config.yaml
+# 配置文件
 .env
+# config.yaml (已移除敏感信息，可以提交)
 
 # Python 缓存和编译文件
 __pycache__/

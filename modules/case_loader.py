@@ -34,6 +34,29 @@ def load_config():
         if 'openai' not in config:
             config['openai'] = {}
         config['openai']['model'] = openai_model
+
+    # 设置默认值 (防止 config.yaml 不存在时报错)
+    defaults = {
+        'data_dir': 'data',
+        'search': {
+            'max_chars_per_request': 200000,
+            'top_k': 10,
+            'min_score': 60
+        },
+        'prompts': {
+            'similarity_search_file': 'prompts/similarity_search.txt'
+        },
+        'case_types': []  # 如果没有配置类型，将自动从 data 目录读取
+    }
+    
+    for key, value in defaults.items():
+        if key not in config:
+            config[key] = value
+        elif isinstance(value, dict) and isinstance(config.get(key), dict):
+            # 简单的嵌套字典补全
+            for sub_key, sub_value in value.items():
+                if sub_key not in config[key]:
+                    config[key][sub_key] = sub_value
         
     return config
 
