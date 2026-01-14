@@ -197,7 +197,7 @@ def search_similar_cases(query: str, cases: list[dict], progress_callback=None) 
     batches = batch_cases_by_chars(cases, max_chars)
     total_batches = len(batches)
     
-    print(f"共 {len(cases)} 个案例，分为 {total_batches} 批并发处理")
+    print(f"共 {len(cases)} 个案例，分为 {total_batches} 批串行处理")
     
     all_results = []
     completed_count = 0

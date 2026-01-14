@@ -7,7 +7,7 @@ openai:
 
 # 检索参数
 search:
-  max_chars_per_request: 50000  # 每次请求的最大中文字数
+  max_chars_per_request: 200000  # 每次请求的最大中文字数
   top_k: 10  # 每批次返回的最相似案例数量
   min_score: 60  # 最低相似度分数阈值，只返回>=此分数的结果
 

@@ -122,7 +122,7 @@ def search_stream():
         # 流式发送进度
         while True:
             try:
-                msg = progress_queue.get(timeout=60)
+                msg = progress_queue.get(timeout=5)
                 if msg.get('done'):
                     break
                 
