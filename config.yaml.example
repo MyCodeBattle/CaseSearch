@@ -1,0 +1,29 @@
+# OpenAI API 配置
+openai:
+  api_key: "your-api-key-here"  # 请填入您的 OpenAI API Key
+  base_url: "https://api.openai.com/v1"  # 如使用代理或其他兼容服务，请修改此地址
+  model: "gpt-3.5-turbo"  # 使用的模型
+  temperature: 0
+
+# 检索参数
+search:
+  max_chars_per_request: 200000  # 每次请求的最大中文字数
+  top_k: 10  # 每批次返回的最相似案例数量
+  min_score: 60  # 最低相似度分数阈值，只返回>=此分数的结果
+
+# 检索提示词配置
+prompts:
+  # 提示词文件路径（相对于项目根目录），支持的变量：{query}, {cases_text}, {top_k}
+  similarity_search_file: "prompts/similarity_search.txt"
+
+# 案件类型配置
+case_types:
+  - 内幕交易
+  - 操纵市场
+  - 信息披露违法违规
+  - 欺诈发行
+  - 非法经营证券业务
+  - 利用未公开信息交易
+
+# 数据目录
+data_dir: "data"

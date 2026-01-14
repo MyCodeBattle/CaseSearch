@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>行政处罚决定书类案检索系统</title>
+    <meta name="description" content="基于AI的证券行政处罚决定书类案检索系统，快速找到相似案例">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* 进度条样式 */
+        .progress-container {
+            display: none;
+            margin: 20px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-container.visible {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .progress-title {
+            font-size: 14px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-title .spinner-icon {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .progress-stats {
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .progress-bar-wrapper {
+            height: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%);
+            background-size: 200% 100%;
+            border-radius: 6px;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+            animation: shimmer 2s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shine 1.5s ease-in-out infinite;
+        }
+
+        @keyframes shine {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .progress-text {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #94a3b8;
+            text-align: center;
+        }
+
+        .progress-text .highlight {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        /* 完成状态 */
+        .progress-container.complete .progress-bar {
+            background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+            animation: none;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+        }
+
+        .progress-container.complete .spinner-icon {
+            display: none;
+        }
+
+        .progress-container.complete .progress-title::before {
+            content: '✓';
+            color: #10b981;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📜 类案检索系统</h1>
+            <p>基于AI的行政处罚决定书相似案例检索</p>
+        </header>
+
+        <section class="search-section">
+            <form class="search-form" id="searchForm">
+                <div class="input-group">
+                    <label for="query">描述您想检索的案件</label>
+                    <textarea class="query-input" id="query" name="query"
+                        placeholder="例如：某上市公司实际控制人在重大资产重组公告前买入公司股票，获利500万元..." rows="4"></textarea>
+                </div>
+
+                <div class="options-row">
+                    <div class="input-group">
+                        <label for="caseType">案件类型 <span style="color: #e74c3c;">*</span></label>
+                        <select class="type-select" id="caseType" name="caseType" required>
+                            <option value="">请选择案件类型</option>
+                            {% for type in case_types %}
+                            <option value="{{ type }}">{{ type }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="search-btn" id="searchBtn">
+                        <span class="btn-text">🔍 开始检索</span>
+                        <span class="spinner"></span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <!-- 进度条 -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-header">
+                <div class="progress-title">
+                    <div class="spinner-icon"></div>
+                    <span>正在并发检索案例...</span>
+                </div>
+                <div class="progress-stats" id="progressStats">0 / 0 批次</div>
+            </div>
+            <div class="progress-bar-wrapper">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="progress-text" id="progressText">
+                正在准备检索...
+            </div>
+        </div>
+
+        <section class="results-section" id="resultsSection">
+            <div class="results-header">
+                <h2 class="results-title">检索结果</h2>
+                <div class="results-actions">
+                    <span class="results-count" id="resultsCount">共 0 个相似案例（≥60分）</span>
+                    <button class="export-btn" id="exportBtn" onclick="exportToExcel()" style="display: none;">
+                        📥 导出 Excel
+                    </button>
+                </div>
+            </div>
+
+            <div id="resultsList"></div>
+        </section>
+    </div>
+
+    <script>
+        const searchForm = document.getElementById('searchForm');
+        const searchBtn = document.getElementById('searchBtn');
+        const queryInput = document.getElementById('query');
+        const caseTypeSelect = document.getElementById('caseType');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressStats = document.getElementById('progressStats');
+        const progressText = document.getElementById('progressText');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsList = document.getElementById('resultsList');
+        const resultsCount = document.getElementById('resultsCount');
+        const errorMessage = document.getElementById('errorMessage');
+        const exportBtn = document.getElementById('exportBtn');
+
+        // 存储当前检索结果
+        let currentResults = [];
+        let currentCaseType = '';
+
+        searchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const query = queryInput.value.trim();
+            const caseType = caseTypeSelect.value;
+
+            if (!query) {
+                showError('请输入查询内容');
+                return;
+            }
+
+            if (!caseType) {
+                showError('请选择案件类型');
+                return;
+            }
+
+            // 重置状态
+            hideError();
+            searchBtn.classList.add('loading');
+            searchBtn.disabled = true;
+            resultsSection.classList.remove('visible');
+            progressContainer.classList.remove('complete');
+            progressContainer.classList.add('visible');
+            progressBar.style.width = '0%';
+            progressStats.textContent = '准备中...';
+            progressText.innerHTML = '正在连接服务器...';
+
+            try {
+                // 使用 SSE 流式获取进度
+                const response = await fetch('/api/search-stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        case_type: caseType
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '检索失败');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // 保留未完成的行
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                handleSSEMessage(data);
+                            } catch (e) {
+                                console.error('解析SSE消息失败:', e);
+                            }
+                        }
+                    }
+                }
+
+            } catch (error) {
+                showError(error.message);
+                progressContainer.classList.remove('visible');
+            } finally {
+                searchBtn.classList.remove('loading');
+                searchBtn.disabled = false;
+            }
+        });
+
+        function handleSSEMessage(data) {
+            switch (data.type) {
+                case 'init':
+                    progressStats.textContent = `0 / ${data.total_batches} 批次`;
+                    progressText.innerHTML = `在 <span class="highlight">${data.case_type}</span> 类型的 <span class="highlight">${data.total_cases}</span> 个案例中检索...`;
+                    break;
+
+                case 'progress':
+                    const percent = Math.round((data.completed / data.total) * 100);
+                    progressBar.style.width = percent + '%';
+                    progressStats.textContent = `${data.completed} / ${data.total} 批次`;
+                    progressText.innerHTML = `已完成 <span class="highlight">${data.completed}</span> 批次，本批次找到 <span class="highlight">${data.batch_count}</span> 个相似案例`;
+                    break;
+
+                case 'complete':
+                    progressContainer.classList.add('complete');
+                    progressBar.style.width = '100%';
+                    progressStats.textContent = '检索完成';
+
+                    const resultCount = data.results ? data.results.length : 0;
+                    progressText.innerHTML = `检索完成！共找到 <span class="highlight">${resultCount}</span> 个相似度≥60分的案例`;
+
+                    // 显示结果
+                    displayResults(data.results, data.message);
+                    break;
+            }
+        }
+
+        function displayResults(results, message) {
+            resultsSection.classList.add('visible');
+
+            // 保存结果供导出使用
+            currentResults = results || [];
+            currentCaseType = caseTypeSelect.value;
+
+            if (!results || results.length === 0) {
+                exportBtn.style.display = 'none';
+                resultsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <h3>${message || '未找到相似度≥60分的案例'}</h3>
+                        <p>请尝试调整查询内容或选择其他案件类型</p>
+                    </div>
+                `;
+                resultsCount.textContent = '共 0 个相似案例（≥60分）';
+                return;
+            }
+
+            // 显示导出按钮
+            exportBtn.style.display = 'inline-flex';
+
+            resultsCount.textContent = `共 ${results.length} 个相似案例（≥60分）`;
+
+            resultsList.innerHTML = results.map(result => `
+                <div class="case-card">
+                    <div class="case-header">
+                        <div class="case-rank">
+                            <div class="rank-badge">${result.rank}</div>
+                            <div class="case-name">${escapeHtml(result.filename)}</div>
+                        </div>
+                        <div class="similarity-score">
+                            <div class="score-value">${result.similarity_score}</div>
+                            <div class="score-label">相似度</div>
+                        </div>
+                    </div>
+                    
+                    <div class="case-summary">${escapeHtml(result.summary)}</div>
+                    
+                    <div class="case-reason">
+                        <strong>相似理由：</strong>${escapeHtml(result.reason)}
+                    </div>
+                    
+                    <button class="expand-btn" onclick="toggleContent(this)">
+                        展开全文
+                    </button>
+                    
+                    <div class="case-content">${escapeHtml(result.content)}</div>
+                </div>
+            `).join('');
+        }
+
+        async function exportToExcel() {
+            if (!currentResults || currentResults.length === 0) {
+                showError('没有可导出的结果');
+                return;
+            }
+
+            try {
+                exportBtn.disabled = true;
+                exportBtn.textContent = '⬇️ 导出中...';
+
+                // 使用 fetch 发送请求
+                const response = await fetch('/api/export-excel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        results: currentResults,
+                        case_type: currentCaseType
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('导出失败，请重试');
+                }
+
+                // 获取 blob 并下载
+                const blob = await response.blob();
+
+                // 生成文件名
+                const now = new Date();
+                const timestamp = now.getFullYear().toString() +
+                    (now.getMonth() + 1).toString().padStart(2, '0') +
+                    now.getDate().toString().padStart(2, '0') + '_' +
+                    now.getHours().toString().padStart(2, '0') +
+                    now.getMinutes().toString().padStart(2, '0') +
+                    now.getSeconds().toString().padStart(2, '0');
+                const filename = `${currentCaseType}_检索结果_${timestamp}.xlsx`;
+
+                // 使用 FileSaver 方式下载
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+
+                // 延迟清理
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(link);
+                }, 1000);
+
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                exportBtn.disabled = false;
+                exportBtn.textContent = '📥 导出 Excel';
+            }
+        }
+
+        function toggleContent(btn) {
+            const content = btn.nextElementSibling;
+            const isExpanded = content.classList.contains('expanded');
+
+            content.classList.toggle('expanded');
+            btn.textContent = isExpanded ? '展开全文' : '收起全文';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('visible');
+        }
+
+        function hideError() {
+            errorMessage.classList.remove('visible');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>
