@@ -4,3 +4,7 @@ pyyaml>=6.0
 python-dotenv>=1.0.0
 openpyxl>=3.1.0
 gunicorn==21.2.0
+chromadb==0.4.24
+rank_bm25>=0.2.0
+jieba>=0.42.0
+posthog<3.0.0

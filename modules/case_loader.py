@@ -6,6 +6,7 @@ import yaml
 from pathlib import Path
 
 
+
 def load_config():
     """加载配置文件"""
     config_path = Path(__file__).parent.parent / "config.yaml"
@@ -34,6 +35,37 @@ def load_config():
         if 'openai' not in config:
             config['openai'] = {}
         config['openai']['model'] = openai_model
+
+    # Embedding Env Support
+    embedding_api_key = os.environ.get('EMBEDDING_API_KEY') or openai_api_key
+    embedding_base_url = os.environ.get('EMBEDDING_BASE_URL') or openai_base_url
+    embedding_model = os.environ.get('EMBEDDING_MODEL') or "text-embedding-v4"
+
+    # Analysis Env Support
+    analysis_api_key = os.environ.get('ANALYSIS_API_KEY') or openai_api_key
+    analysis_base_url = os.environ.get('ANALYSIS_BASE_URL') or openai_base_url
+    analysis_model = os.environ.get('ANALYSIS_MODEL') or "gemini-1.5-pro"
+
+    if 'analysis' not in config:
+        config['analysis'] = {}
+
+    if analysis_api_key:
+        config['analysis']['api_key'] = analysis_api_key
+    if analysis_base_url:
+        config['analysis']['base_url'] = analysis_base_url
+    
+    # Prioritize config file model if exists, else use env/default
+    if 'model' not in config['analysis']:
+        config['analysis']['model'] = analysis_model
+
+    if 'embedding' not in config:
+        config['embedding'] = {}
+    
+    if embedding_api_key:
+        config['embedding']['api_key'] = embedding_api_key
+    if embedding_base_url:
+        config['embedding']['base_url'] = embedding_base_url
+    config['embedding']['model'] = embedding_model
 
     # 设置默认值 (防止 config.yaml 不存在时报错)
     defaults = {
@@ -77,10 +109,14 @@ def get_available_types():
             if txt_files:
                 types.append(item.name)
     
+    # Check for direct files in data_dir (support for flat directory structure)
+    if list(data_dir.glob("*.txt")):
+        types.append("")
+    
     return sorted(types)
 
 
-def load_cases_by_type(case_type: str) -> list[dict]:
+def load_cases_by_type(case_type: str) -> "list[dict]":
     """
     加载指定类型的所有案例
     

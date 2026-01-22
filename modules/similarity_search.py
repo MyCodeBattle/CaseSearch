@@ -17,7 +17,9 @@ def get_openai_client():
     )
 
 
-def batch_cases_by_chars(cases: list[dict], max_chars: int) -> list[list[dict]]:
+from typing import List, Dict, Any
+
+def batch_cases_by_chars(cases: List[Dict], max_chars: int) -> List[List[Dict]]:
     """
     按字数阈值将案例分批
     
@@ -51,7 +53,7 @@ def batch_cases_by_chars(cases: list[dict], max_chars: int) -> list[list[dict]]:
     return batches
 
 
-def search_similar_in_batch(query: str, cases: list[dict], top_k: int = 10) -> list[dict]:
+def search_similar_in_batch(query: str, cases: List[Dict], top_k: int = 10) -> List[Dict]:
     """
     在一批案例中检索最相似的案例
     
@@ -71,29 +73,10 @@ def search_similar_in_batch(query: str, cases: list[dict], top_k: int = 10) -> l
     for i, case in enumerate(cases, 1):
         cases_text += f"\n\n===== 案例 {i}: {case['filename']} =====\n{case['content']}\n"
     
+    from .prompts import SIMILARITY_SEARCH_PROMPT
+
     # 加载提示词：优先从外部文件读取，否则使用默认模板
-    default_prompt = """你是一个证券行政处罚案例检索专家。请根据用户的查询，从以下案例中找出最相似的案例。
-
-用户查询：{query}
-
-以下是待检索的案例：
-{cases_text}
-
-请分析每个案例与用户查询的相似度，考虑以下因素：
-1. 违法行为类型是否相同
-2. 违法情节是否相似（如获利金额、持续时间、手段方法等）
-3. 涉及主体是否类似（个人/机构）
-4. 处罚结果是否相近
-
-请返回最相似的 {top_k} 个案例，按相似度从高到低排序。
-
-输出 JSON 格式，包含一个 results 数组，每个元素包含：
-- filename: 案例文件名（必须与上面提供的案例名称完全一致）
-- similarity_score: 相似度评分（0-100的整数，100表示完全相似）
-- summary: 案例摘要（50字以内概括该案例的核心内容）
-- reason: 相似理由（说明为什么这个案例与查询相似）
-
-只输出 JSON，不要有其他内容。"""
+    default_prompt = SIMILARITY_SEARCH_PROMPT
     
     # 尝试从外部文件读取提示词
     prompt_template = default_prompt
@@ -177,7 +160,7 @@ def search_similar_in_batch(query: str, cases: list[dict], top_k: int = 10) -> l
         return []
 
 
-def search_similar_cases(query: str, cases: list[dict], progress_callback=None) -> list[dict]:
+def search_similar_cases(query: str, cases: List[Dict], progress_callback=None) -> List[Dict]:
     """
     检索相似案例（支持并发分批处理）
     

@@ -43,5 +43,10 @@ instance/
 *.log
 
 # 临时数据或输出 (如果不需要提交)
-# data/  <-- 如果案例数据保密，取消注释这行，但注意 Render 部署需要数据
+data/
+*.db
+*.txt
 *.xlsx
+
+# Large data directories
+total_texts/

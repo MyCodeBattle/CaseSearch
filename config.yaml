@@ -1,19 +1,32 @@
-# OpenAI API 配置
+# OpenAI Chat API 配置 (用于 Step 2)
 openai:
-  api_key: ""  # 已移至环境变量 OPENAI_API_KEY
-  base_url: ""  # 已移至环境变量 OPENAI_BASE_URL
-  model: ""  # 已移至环境变量 OPENAI_MODEL
+  api_key: "sk-WddzxhBQtq1sVTbBw7gHzOXwiFEYzTieC1VndEHoO7J9Ejlb"  # ENV: OPENAI_API_KEY
+  base_url: "https://api.qiyiguo.uk/v1" # ENV: OPENAI_BASE_URL
+  query_model: "[vt-按量计费]gemini-3-pro-preview"     # ENV: OPENAI_QUERY_MODEL
   temperature: 0
+
+# 分析模型配置 (用于 Step 4)
+analysis:
+  api_key: "sk-G1qMmDhRBu3cWeeAe4we5dElpffApeniyOf7q8cri52GWKkm" # ENV: ANALYSIS_API_KEY (默认同 openai.api_key)
+  base_url: "https://api.qiyiguo.uk/v1" # ENV: ANALYSIS_BASE_URL
+  model: "[寒假快乐]gemini-3-pro-preview"    # ENV: ANALYSIS_MODEL
+
+# 向量模型配置 (用于 Step 1, Step 3)
+embedding:
+  api_key: "sk-d8d1bb19f1424068bec3ee988a56a2f8"  # ENV: EMBEDDING_API_KEY (如果未设置，默认使用 openai.api_key)
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # ENV: EMBEDDING_BASE_URL (如果未设置，默认使用 openai.base_url)
+  model: "text-embedding-v4" # ENV: EMBEDDING_MODEL
 
 # 检索参数
 search:
-  max_chars_per_request: 200000  # 每次请求的最大中文字数
-  top_k: 10  # 每批次返回的最相似案例数量
-  min_score: 60  # 最低相似度分数阈值，只返回>=此分数的结果
+  max_chars_per_request: 200000 
+  vector_search_top_k: 500
+  candidate_limit: 100
+  final_result_limit: 50
+  min_score: 60 
 
 # 检索提示词配置
 prompts:
-  # 提示词文件路径（相对于项目根目录），支持的变量：{query}, {cases_text}, {top_k}
   similarity_search_file: "prompts/similarity_search.txt"
 
 # 案件类型配置
@@ -26,4 +39,8 @@ case_types:
   - 利用未公开信息交易
 
 # 数据目录
-data_dir: "data"
+data_dir: "total_texts"
+
+# 构建索引配置
+build:
+  data_dir: "total_texts"

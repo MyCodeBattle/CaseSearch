@@ -84,10 +84,11 @@
 
         .progress-bar {
             height: 100%;
+            width: 100%;
+            /* Indeterminate usually or stepped */
             background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%);
             background-size: 200% 100%;
             border-radius: 6px;
-            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
             animation: shimmer 2s ease-in-out infinite;
@@ -100,27 +101,6 @@
 
             100% {
                 background-position: -200% 0;
-            }
-        }
-
-        .progress-bar::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            animation: shine 1.5s ease-in-out infinite;
-        }
-
-        @keyframes shine {
-            0% {
-                transform: translateX(-100%);
-            }
-
-            100% {
-                transform: translateX(100%);
             }
         }
 
@@ -158,31 +138,21 @@
 <body>
     <div class="container">
         <header>
-            <h1>类案检索系统</h1>
+            <h1>行政处罚类案检索系统</h1>
             <p>qky专用</p>
         </header>
 
         <section class="search-section">
             <form class="search-form" id="searchForm">
                 <div class="input-group">
-                    <label for="query">描述您想检索的案件</label>
-                    <textarea class="query-input" id="query" name="query" placeholder="例如：帮我找一下涉及年报审计意见的避损案例"
-                        rows="4"></textarea>
+                    <label for="query">描述您想检索的案件 (越详细越准确)</label>
+                    <textarea class="query-input" id="query" name="query"
+                        placeholder="例如：有没有利用公司控制权变更信息来进行内幕交易，且罚款金额超过50万的案例" rows="4"></textarea>
                 </div>
 
-                <div class="options-row">
-                    <div class="input-group">
-                        <label for="caseType">案件类型 <span style="color: #e74c3c;">*</span></label>
-                        <select class="type-select" id="caseType" name="caseType" required>
-                            <option value="">请选择案件类型</option>
-                            {% for type in case_types %}
-                            <option value="{{ type }}">{{ type }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
+                <div class="options-row" style="justify-content: flex-end;">
                     <button type="submit" class="search-btn" id="searchBtn">
-                        <span class="btn-text">🔍 开始检索</span>
+                        <span class="btn-text">开始检索</span>
                         <span class="spinner"></span>
                     </button>
                 </div>
@@ -196,15 +166,15 @@
             <div class="progress-header">
                 <div class="progress-title">
                     <div class="spinner-icon"></div>
-                    <span>正在检索案例...时间可能比较久，请先喝杯咖啡☕️...</span>
+                    <span>AI 正在思考中...</span>
                 </div>
-                <div class="progress-stats" id="progressStats">0 / 0 批次</div>
+                <!-- <div class="progress-stats" id="progressStats">步骤 1/4</div> -->
             </div>
             <div class="progress-bar-wrapper">
-                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                <div class="progress-bar" id="progressBar"></div>
             </div>
             <div class="progress-text" id="progressText">
-                正在准备检索...
+                正在连接服务器...
             </div>
         </div>
 
@@ -212,9 +182,9 @@
             <div class="results-header">
                 <h2 class="results-title">检索结果</h2>
                 <div class="results-actions">
-                    <span class="results-count" id="resultsCount">共 0 个相似案例（≥60分）</span>
+                    <span class="results-count" id="resultsCount">共 0 个相似案例</span>
                     <button class="export-btn" id="exportBtn" onclick="exportToExcel()" style="display: none;">
-                        📥 导出 Excel
+                        导出 Excel
                     </button>
                 </div>
             </div>
@@ -227,10 +197,9 @@
         const searchForm = document.getElementById('searchForm');
         const searchBtn = document.getElementById('searchBtn');
         const queryInput = document.getElementById('query');
-        const caseTypeSelect = document.getElementById('caseType');
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progressBar');
-        const progressStats = document.getElementById('progressStats');
+        // const progressStats = document.getElementById('progressStats');
         const progressText = document.getElementById('progressText');
         const resultsSection = document.getElementById('resultsSection');
         const resultsList = document.getElementById('resultsList');
@@ -240,21 +209,14 @@
 
         // 存储当前检索结果
         let currentResults = [];
-        let currentCaseType = '';
 
         searchForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const query = queryInput.value.trim();
-            const caseType = caseTypeSelect.value;
 
             if (!query) {
                 showError('请输入查询内容');
-                return;
-            }
-
-            if (!caseType) {
-                showError('请选择案件类型');
                 return;
             }
 
@@ -265,8 +227,8 @@
             resultsSection.classList.remove('visible');
             progressContainer.classList.remove('complete');
             progressContainer.classList.add('visible');
-            progressBar.style.width = '0%';
-            progressStats.textContent = '准备中...';
+            // progressBar.style.width = '100%'; // Indeterminate
+            // progressStats.textContent = '准备中...';
             progressText.innerHTML = '正在连接服务器...';
 
             try {
@@ -277,8 +239,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        query: query,
-                        case_type: caseType
+                        query: query
                     })
                 });
 
@@ -323,27 +284,24 @@
         function handleSSEMessage(data) {
             switch (data.type) {
                 case 'init':
-                    progressStats.textContent = `0 / ${data.total_batches} 批次`;
-                    progressText.innerHTML = `在 <span class="highlight">${data.case_type}</span> 类型的 <span class="highlight">${data.total_cases}</span> 个案例中检索...`;
+                    progressText.innerHTML = data.message;
                     break;
 
                 case 'progress':
-                    const percent = Math.round((data.completed / data.total) * 100);
-                    progressBar.style.width = percent + '%';
-                    progressStats.textContent = `${data.completed} / ${data.total} 批次`;
-                    progressText.innerHTML = `已完成 <span class="highlight">${data.completed}</span> 批次，本批次找到 <span class="highlight">${data.batch_count}</span> 个相似案例`;
+                    progressText.innerHTML = data.message;
                     break;
 
                 case 'complete':
                     progressContainer.classList.add('complete');
-                    progressBar.style.width = '100%';
-                    progressStats.textContent = '检索完成';
-
-                    const resultCount = data.results ? data.results.length : 0;
-                    progressText.innerHTML = `检索完成！共找到 <span class="highlight">${resultCount}</span> 个相似度≥60分的案例`;
+                    progressText.innerHTML = data.message;
 
                     // 显示结果
                     displayResults(data.results, data.message);
+                    break;
+
+                case 'error':
+                    showError(data.error);
+                    progressContainer.classList.remove('visible');
                     break;
             }
         }
@@ -353,25 +311,24 @@
 
             // 保存结果供导出使用
             currentResults = results || [];
-            currentCaseType = caseTypeSelect.value;
 
             if (!results || results.length === 0) {
                 exportBtn.style.display = 'none';
                 resultsList.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📭</div>
-                        <h3>${message || '未找到相似度≥60分的案例'}</h3>
-                        <p>请尝试调整查询内容或选择其他案件类型</p>
+                        <h3>${message || '未找到匹配的案例'}</h3>
+                        <p>请尝试提供更详细的查询描述</p>
                     </div>
                 `;
-                resultsCount.textContent = '共 0 个相似案例（≥60分）';
+                resultsCount.textContent = '共 0 个相似案例';
                 return;
             }
 
             // 显示导出按钮
             exportBtn.style.display = 'inline-flex';
 
-            resultsCount.textContent = `共 ${results.length} 个相似案例（≥60分）`;
+            resultsCount.textContent = `共 ${results.length} 个相似案例`;
 
             resultsList.innerHTML = results.map(result => `
                 <div class="case-card">
@@ -382,13 +339,14 @@
                         </div>
                         <div class="similarity-score">
                             <div class="score-value">${result.similarity_score}</div>
-                            <div class="score-label">相似度</div>
+                            <div class="score-label">RAG评分</div>
                         </div>
                     </div>
                     
-                    <div class="case-summary">${escapeHtml(result.summary)}</div>
-                    
                     <div class="case-reason">
+                        <div class="case-meta-info" style="color: #475569; font-size: 0.95em; margin-bottom: 8px; font-weight: 600; padding-bottom: 8px; border-bottom: 1px dashed #e2e8f0;">
+                            ${escapeHtml(result.header_info)}
+                        </div>
                         <strong>相似理由：</strong>${escapeHtml(result.reason)}
                     </div>
                     
@@ -418,8 +376,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        results: currentResults,
-                        case_type: currentCaseType
+                        results: currentResults
                     })
                 });
 
@@ -438,7 +395,7 @@
                     now.getHours().toString().padStart(2, '0') +
                     now.getMinutes().toString().padStart(2, '0') +
                     now.getSeconds().toString().padStart(2, '0');
-                const filename = `${currentCaseType}_检索结果_${timestamp}.xlsx`;
+                const filename = `类案检索结果_${timestamp}.xlsx`;
 
                 // 使用 FileSaver 方式下载
                 const url = URL.createObjectURL(blob);
