@@ -5,7 +5,7 @@ LLM 相似度检索模块
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
-from .case_loader import load_config
+from .config_loader import load_config
 
 
 def get_openai_client():
@@ -112,7 +112,7 @@ def search_similar_in_batch(query: str, cases: List[Dict], top_k: int = 10) -> L
                 {"role": "system", "content": "你是一个JSON输出助手，只输出有效的JSON格式。"},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.2,
+            temperature=0,
             response_format={"type": "json_object"}
         )
         

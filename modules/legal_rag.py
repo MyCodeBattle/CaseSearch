@@ -19,13 +19,15 @@ load_dotenv()
 
 # Import internal modules (assuming run from root or proper pythonpath)
 try:
-    from .case_loader import load_config, get_available_types, load_cases_by_type
+    from .config_loader import load_config
+    from .case_loader import get_available_types, load_cases_by_type
     from .similarity_search import batch_cases_by_chars
 except ImportError:
     # For testing when running directly
     import sys
     sys.path.append(str(Path(__file__).parent.parent))
-    from modules.case_loader import load_config, get_available_types, load_cases_by_type
+    from modules.config_loader import load_config
+    from modules.case_loader import get_available_types, load_cases_by_type
     from modules.similarity_search import batch_cases_by_chars
     from modules.prompts import QUERY_EXPANSION_PROMPT, SIMILARITY_SEARCH_PROMPT
 else:
@@ -200,9 +202,6 @@ class LegalRAG:
         metadatas = []
         ids = []
         
-        documents = []
-        metadatas = []
-        ids = []
         
         chunk_counter = 0
 
@@ -517,7 +516,7 @@ class LegalRAG:
                     {"role": "system", "content": "你是一个JSON输出助手，只输出有效的JSON格式。"},
                     {"role": "user", "content": final_prompt}
                 ],
-                temperature=0.2, # Matching similarity_search.py
+                temperature=0, # Matching similarity_search.py
                 response_format={"type": "json_object"}
             )
             
@@ -571,7 +570,7 @@ class LegalRAG:
         
         # 4. Verify
         if progress_callback:
-            progress_callback(f"初筛找到 {len(candidates)} 个相关文档，正在使用大模型进行深度比对与验证...")
+            progress_callback(f"初筛找到 {len(candidates)} 个相关文档，正在调用大模型进行深度比对与验证...该过程耗时较长，先喝杯咖啡吧！☕️")
         print(f"Step 4: Verifying {len(candidates)} candidates with LLM (Analysis Model)...")
         final_results = self.analyze_candidates(candidates, user_query)
         

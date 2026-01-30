@@ -166,16 +166,16 @@
             <div class="progress-header">
                 <div class="progress-title">
                     <div class="spinner-icon"></div>
-                    <span>AI 正在思考中...</span>
+                    <span id="statusTitle">AI 正在思考中...</span>
                 </div>
                 <!-- <div class="progress-stats" id="progressStats">步骤 1/4</div> -->
             </div>
             <div class="progress-bar-wrapper">
                 <div class="progress-bar" id="progressBar"></div>
             </div>
-            <div class="progress-text" id="progressText">
+            <!-- <div class="progress-text" id="progressText">
                 正在连接服务器...
-            </div>
+            </div> -->
         </div>
 
         <section class="results-section" id="resultsSection">
@@ -200,7 +200,8 @@
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progressBar');
         // const progressStats = document.getElementById('progressStats');
-        const progressText = document.getElementById('progressText');
+        // const progressText = document.getElementById('progressText');
+        const statusTitle = document.getElementById('statusTitle');
         const resultsSection = document.getElementById('resultsSection');
         const resultsList = document.getElementById('resultsList');
         const resultsCount = document.getElementById('resultsCount');
@@ -229,7 +230,7 @@
             progressContainer.classList.add('visible');
             // progressBar.style.width = '100%'; // Indeterminate
             // progressStats.textContent = '准备中...';
-            progressText.innerHTML = '正在连接服务器...';
+            // progressText.innerHTML = '正在连接服务器...';
 
             try {
                 // 使用 SSE 流式获取进度
@@ -284,16 +285,19 @@
         function handleSSEMessage(data) {
             switch (data.type) {
                 case 'init':
-                    progressText.innerHTML = data.message;
+                    statusTitle.textContent = data.message;
+                    // progressText.innerHTML = data.message;
                     break;
 
                 case 'progress':
-                    progressText.innerHTML = data.message;
+                    statusTitle.textContent = data.message;
+                    // progressText.innerHTML = data.message;
                     break;
 
                 case 'complete':
                     progressContainer.classList.add('complete');
-                    progressText.innerHTML = data.message;
+                    statusTitle.textContent = '检索完成';
+                    // progressText.innerHTML = data.message;
 
                     // 显示结果
                     displayResults(data.results, data.message);

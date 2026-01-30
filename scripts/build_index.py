@@ -11,6 +11,7 @@ sys.path.append(str(project_root))
 load_dotenv()
 
 import modules.case_loader
+import modules.config_loader
 
 def main():
     parser = argparse.ArgumentParser(description="Build ChromaDB index for Legal RAG")
@@ -23,20 +24,20 @@ def main():
     
     # If no CLI arg, check config
     if not target_data_dir:
-        temp_config = modules.case_loader.load_config()
+        temp_config = modules.config_loader.load_config()
         target_data_dir = temp_config.get('build', {}).get('data_dir')
 
     # Patch config if target_data_dir is determined
     if target_data_dir:
         print(f"Target data directory: {target_data_dir}")
-        original_load_config = modules.case_loader.load_config
+        original_load_config = modules.config_loader.load_config
         
         def patched_load_config():
             config = original_load_config()
             config['data_dir'] = target_data_dir
             return config
             
-        modules.case_loader.load_config = patched_load_config
+        modules.config_loader.load_config = patched_load_config
         
         # Also patch legal_rag imports
         from modules import legal_rag

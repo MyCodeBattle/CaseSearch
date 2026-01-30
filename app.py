@@ -15,7 +15,8 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 # 加载环境变量 (.env)
 load_dotenv()
 
-from modules.case_loader import load_config, get_available_types, get_cases_summary
+from modules.case_loader import get_available_types, get_cases_summary
+from modules.config_loader import load_config
 # 引入 LegalRAG
 from modules.legal_rag import LegalRAG
 

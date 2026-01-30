@@ -10,6 +10,7 @@ sys.path.append(str(project_root))
 load_dotenv()
 
 import modules.case_loader
+import modules.config_loader
 from modules import legal_rag
 from chromadb.utils import embedding_functions
 import time
@@ -28,7 +29,7 @@ def setup_test_environment(data_dir=None):
     if data_dir:
         TARGET_DATA_DIR = data_dir
 
-    original_load_config = modules.case_loader.load_config
+    original_load_config = modules.config_loader.load_config
 
     def mocked_load_config():
         config = original_load_config()
@@ -43,7 +44,7 @@ def setup_test_environment(data_dir=None):
         return config
 
     # Apply patches
-    modules.case_loader.load_config = mocked_load_config
+    modules.config_loader.load_config = mocked_load_config
     legal_rag.load_config = mocked_load_config
     
     return mocked_load_config
