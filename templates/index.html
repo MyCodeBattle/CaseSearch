@@ -339,7 +339,7 @@
                     <div class="case-header">
                         <div class="case-rank">
                             <div class="rank-badge">${result.rank}</div>
-                            <div class="case-name">${escapeHtml(result.filename)}</div>
+                            <div class="case-name">${escapeHtml(result.header_info)}</div>
                         </div>
                         <div class="similarity-score">
                             <div class="score-value">${result.similarity_score}</div>
@@ -348,9 +348,6 @@
                     </div>
                     
                     <div class="case-reason">
-                        <div class="case-meta-info" style="color: #475569; font-size: 0.95em; margin-bottom: 8px; font-weight: 600; padding-bottom: 8px; border-bottom: 1px dashed #e2e8f0;">
-                            ${escapeHtml(result.header_info)}
-                        </div>
                         <strong>相似理由：</strong>${escapeHtml(result.reason)}
                     </div>
                     

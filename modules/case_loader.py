@@ -4,6 +4,7 @@
 import os
 import yaml
 from pathlib import Path
+from loguru import logger
 
 
 
@@ -63,7 +64,7 @@ def load_cases_by_type(case_type: str) -> "list[dict]":
                         'char_count': len(content)
                     })
         except Exception as e:
-            print(f"读取文件失败 {txt_file}: {e}")
+            logger.error(f"读取文件失败 {txt_file}: {e}")
     
     return cases
 

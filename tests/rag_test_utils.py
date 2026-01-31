@@ -2,6 +2,7 @@ import sys
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from loguru import logger
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -53,7 +54,7 @@ class VerboseOpenAIEmbeddingFunction(embedding_functions.OpenAIEmbeddingFunction
     def __call__(self, input: list) -> list:
         # Start time
         t0 = time.time()
-        print(f"\n[VerboseEF] Requesting embeddings for {len(input)} documents from Embedding API...")
+        logger.debug(f"\n[VerboseEF] Requesting embeddings for {len(input)} documents from Embedding API...")
         
         if not input:
             return []
@@ -75,7 +76,7 @@ class VerboseOpenAIEmbeddingFunction(embedding_functions.OpenAIEmbeddingFunction
         results = [np.array(data.embedding, dtype=np.float32) for data in response.data]
 
         duration = time.time() - t0
-        print(f"[VerboseEF] Received {len(results)} vectors in {duration:.2f}s. Vector Dim: {len(results[0])}")
+        logger.debug(f"[VerboseEF] Received {len(results)} vectors in {duration:.2f}s. Vector Dim: {len(results[0])}")
         return results
 
 class TestLegalRAG(legal_rag.LegalRAG):
@@ -90,7 +91,7 @@ class TestLegalRAG(legal_rag.LegalRAG):
         self.chroma_db_path = str(self.data_dir / "chroma_db")
 
         
-        print(f"Test RAG paths:\nData: {self.data_dir}\nDB: {self.chroma_db_path}")
+        logger.info(f"Test RAG paths:\nData: {self.data_dir}\nDB: {self.chroma_db_path}")
         
         # Re-init client with new path
         self.chroma_client = chromadb.PersistentClient(path=self.chroma_db_path)
@@ -117,15 +118,15 @@ class TestLegalRAG(legal_rag.LegalRAG):
             )
         except ValueError as e:
             if "conflict" in str(e) and allow_reset:
-                print("Embedding function conflict detected and allow_reset=True. Deleting existing collection...")
+                logger.warning("Embedding function conflict detected and allow_reset=True. Deleting existing collection...")
                 self.chroma_client.delete_collection("legal_cases")
                 self.collection = self.chroma_client.create_collection(
                     name="legal_cases",
                     embedding_function=openai_ef
                 )
             elif "conflict" in str(e):
-                print("\nWARNING: Embedding function metadata conflict (persisted vs new).")
-                print("Forcing load of collection with new embedding function for verification.")
+                logger.warning("\nWARNING: Embedding function metadata conflict (persisted vs new).")
+                logger.warning("Forcing load of collection with new embedding function for verification.")
                 self.collection = self.chroma_client.get_collection(name="legal_cases")
                 self.collection._embedding_function = openai_ef
             else:

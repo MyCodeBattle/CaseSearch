@@ -6,6 +6,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 from .config_loader import load_config
+from loguru import logger
 
 
 def get_openai_client():
@@ -93,7 +94,7 @@ def search_similar_in_batch(query: str, cases: List[Dict], top_k: int = 10) -> L
             with open(prompt_path, 'r', encoding='utf-8') as f:
                 prompt_template = f.read()
         except Exception as e:
-            print(f"读取提示词文件失败，使用默认提示词: {e}")
+            logger.warning(f"读取提示词文件失败，使用默认提示词: {e}")
     # 兼容旧的内联方式
     elif prompts_config.get('similarity_search'):
         prompt_template = prompts_config.get('similarity_search')
@@ -119,7 +120,7 @@ def search_similar_in_batch(query: str, cases: List[Dict], top_k: int = 10) -> L
         # 获取响应内容
         content = response.choices[0].message.content
         if not content:
-            print("警告: API 返回了空内容")
+            logger.warning("警告: API 返回了空内容")
             return []
         
         # 清理可能存在的 Markdown 代码块标记
@@ -136,8 +137,8 @@ def search_similar_in_batch(query: str, cases: List[Dict], top_k: int = 10) -> L
         try:
             result = json.loads(content)
         except json.JSONDecodeError as e:
-            print(f"JSON 解析失败: {e}")
-            print(f"原始响应内容: {content[:500]}")  # 只打印前500字符
+            logger.error(f"JSON 解析失败: {e}")
+            logger.debug(f"原始响应内容: {content[:500]}")  # 只打印前500字符
             return []
         
         results = result.get('results', [])
@@ -156,7 +157,7 @@ def search_similar_in_batch(query: str, cases: List[Dict], top_k: int = 10) -> L
         return valid_results[:top_k]
     
     except Exception as e:
-        print(f"检索出错: {e}")
+        logger.error(f"检索出错: {e}")
         return []
 
 
@@ -180,7 +181,7 @@ def search_similar_cases(query: str, cases: List[Dict], progress_callback=None) 
     batches = batch_cases_by_chars(cases, max_chars)
     total_batches = len(batches)
     
-    print(f"共 {len(cases)} 个案例，分为 {total_batches} 批串行处理")
+    logger.info(f"共 {len(cases)} 个案例，分为 {total_batches} 批串行处理")
     
     all_results = []
     completed_count = 0
@@ -191,14 +192,14 @@ def search_similar_cases(query: str, cases: List[Dict], progress_callback=None) 
             batch_results = search_similar_in_batch(query, batch, top_k)
             all_results.extend(batch_results)
             completed_count += 1
-            print(f"批次 {i}/{total_batches} 完成，获得 {len(batch_results)} 个结果")
+            logger.info(f"批次 {i}/{total_batches} 完成，获得 {len(batch_results)} 个结果")
             
             # 调用进度回调
             if progress_callback:
                 progress_callback(completed_count, total_batches, batch_results)
         except Exception as e:
             completed_count += 1
-            print(f"批次 {i} 处理出错: {e}")
+            logger.error(f"批次 {i} 处理出错: {e}")
             if progress_callback:
                 progress_callback(completed_count, total_batches, [])
     

@@ -7,6 +7,7 @@ from openai import OpenAI
 
 from .prompts import QUERY_EXPANSION_PROMPT, SIMILARITY_SEARCH_PROMPT
 from .similarity_search import batch_cases_by_chars
+from loguru import logger
 
 
 class SearchMixin:
@@ -41,7 +42,7 @@ class SearchMixin:
             content = response.choices[0].message.content
             return json.loads(content)
         except Exception as e:
-            print(f"Query expansion failed: {e}")
+            logger.error(f"Query expansion failed: {e}")
             # Fallback to simple query
             return {
                 "conditions": [{
@@ -58,7 +59,7 @@ class SearchMixin:
         Step 3.1: Abstract-based Retrieval (Top 300)
         Uses the full user query for retrieval.
         """
-        print(f"Step 3.1: Retrieving from Abstract Index using full query...")
+        logger.info(f"Step 3.1: Retrieving from Abstract Index using full query...")
         
         # Default to 300 documents
         target_doc_count = 300
@@ -112,13 +113,13 @@ class SearchMixin:
                             if len(candidate_map) >= target_doc_count:
                                 break
             except Exception as e:
-                print(f"Abstract search failed for query '{vector_query}': {e}")
+                logger.error(f"Abstract search failed for query '{vector_query}': {e}")
         
         # In the previous logic we returned a Dict[str, str] (id -> path)
         # We should maintain that interface
         final_candidates = {k: v["path"] for k, v in candidate_map.items()}
         
-        print(f"Abstract search found {len(final_candidates)} candidates.")
+        logger.info(f"Abstract search found {len(final_candidates)} candidates.")
         return final_candidates
 
     def retrieve(self, conditions: List[Dict], logic: str = "AND", filter_ids: List[str] = None) -> Dict[str, str]:
@@ -151,12 +152,12 @@ class SearchMixin:
 
             if vector_query:
                 # Use query_texts
-                print(f"Calling embedding model for query (Full Text): '{vector_query}'...")
+                logger.debug(f"Calling embedding model for query (Full Text): '{vector_query}'...")
 
                 try:
                     manual_embeddings = self.ef([vector_query])
                 except Exception as e:
-                    print(f"DEBUG: Manual embedding failed: {e}")
+                    logger.error(f"DEBUG: Manual embedding failed: {e}")
                     raise e
 
                 # EXPAND: Retrieve top N chunks
@@ -207,7 +208,7 @@ class SearchMixin:
             # So we separate them.
 
             candidate_maps.append({k: v["path"] for k, v in condition_candidates.items()})
-            print(f"Condition '{condition.get('description')}' found {len(condition_candidates)} candidates.")
+            logger.info(f"Condition '{condition.get('description')}' found {len(condition_candidates)} candidates.")
 
             # DEBUG LOGGING
             with open("debug_retrieval_results.txt", "a", encoding="utf-8") as f:
@@ -233,7 +234,7 @@ class SearchMixin:
             for m in candidate_maps[1:]:
                 final_candidates.update(m)
 
-        print(f"After {logic} logic, {len(final_candidates)} candidates remain.")
+        logger.info(f"After {logic} logic, {len(final_candidates)} candidates remain.")
 
         # DEBUG LOGGING
         with open("debug_retrieval_results.txt", "a", encoding="utf-8") as f:
@@ -246,7 +247,7 @@ class SearchMixin:
 
         return final_candidates
 
-    def analyze_candidates(self, doc_id_map: Dict[str, str], user_query: str) -> List[Dict]:
+    def analyze_candidates(self, doc_id_map: Dict[str, str], user_query: str, progress_callback=None) -> List[Dict]:
         """
         Step 4: Full-Text Analysis (Batch)
         Matches logic in similarity_search.py
@@ -269,7 +270,7 @@ class SearchMixin:
                             'header_info': first_line
                         })
                 except Exception as e:
-                    print(f"Failed to load file {filepath}: {e}")
+                    logger.error(f"Failed to load file {filepath}: {e}")
 
         if not candidates:
             return []
@@ -279,14 +280,14 @@ class SearchMixin:
         batches = batch_cases_by_chars(candidates, max_chars)
 
         all_results = []
-        print(f"Candidates split into {len(batches)} batches for analysis.")
+        logger.info(f"Candidates split into {len(batches)} batches for analysis.")
 
         final_limit = self.config['search'].get('final_result_limit', 10)
 
         for batch in batches:
             # Pass final_limit to batch analysis to let LLM know the target count,
             # though LLM sees only one batch at a time.
-            batch_results = self._analyze_batch(user_query, batch, top_k=final_limit)
+            batch_results = self._analyze_batch(user_query, batch, top_k=final_limit, progress_callback=progress_callback)
             all_results.extend(batch_results)
 
         # Sort by score
@@ -296,7 +297,7 @@ class SearchMixin:
         final_limit = self.config['search'].get('final_result_limit', 10)
         return all_results[:final_limit]
 
-    def _analyze_batch(self, query: str, cases: List[Dict], top_k: int = 10) -> List[Dict]:
+    def _analyze_batch(self, query: str, cases: List[Dict], top_k: int = 10, progress_callback=None) -> List[Dict]:
         """
         Batch analysis using the prompt from similarity_search.py
         """
@@ -319,52 +320,61 @@ class SearchMixin:
             top_k=min(top_k, len(cases))
         )
 
-        try:
-            # Use analysis model
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "你是一个JSON输出助手，只输出有效的JSON格式。"},
-                    {"role": "user", "content": final_prompt}
-                ],
-                temperature=0,  # Matching similarity_search.py
-                response_format={"type": "json_object"}
-            )
+        max_retries = 3
+        retry_delay = 2
 
-            content = response.choices[0].message.content.strip()
-            print(f"DEBUG: Batch Analysis Response:\n{content}\n")
-            # Basic cleanup
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
+        for attempt in range(max_retries):
+            try:
+                # Use analysis model
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "你是一个JSON输出助手，只输出有效的JSON格式。"},
+                        {"role": "user", "content": final_prompt}
+                    ],
+                    temperature=0,  # Matching similarity_search.py
+                    response_format={"type": "json_object"}
+                )
 
-            result_json = json.loads(content.strip())
-            api_results = result_json.get('results', [])
+                content = response.choices[0].message.content.strip()
+                logger.debug(f"DEBUG: Batch Analysis Response:\n{content}\n")
+                # Basic cleanup
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.startswith("```"):
+                    content = content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
 
-            # Map back to full case info
-            case_map = {c['filename']: c for c in cases}
-            final_results = []
+                result_json = json.loads(content.strip())
+                api_results = result_json.get('results', [])
 
-            for res in api_results:
-                fname = res.get('filename')
-                if fname in case_map:
-                    # Filter by min_score
-                    if res.get('similarity_score', 0) >= self.config['search'].get('min_score', 60):
-                        merged = case_map[fname].copy()
-                        merged.update(res)
-                        # rename score to match RAG output format expected by test?
-                        # Test expects 'score' key. api returns 'similarity_score'.
-                        merged['score'] = res.get('similarity_score')
-                        final_results.append(merged)
+                # Map back to full case info
+                case_map = {c['filename']: c for c in cases}
+                final_results = []
 
-            return final_results
+                for res in api_results:
+                    fname = res.get('filename')
+                    if fname in case_map:
+                        # Filter by min_score
+                        if res.get('similarity_score', 0) >= self.config['search'].get('min_score', 60):
+                            merged = case_map[fname].copy()
+                            merged.update(res)
+                            # rename score to match RAG output format expected by test?
+                            # Test expects 'score' key. api returns 'similarity_score'.
+                            merged['score'] = res.get('similarity_score')
+                            final_results.append(merged)
 
-        except Exception as e:
-            print(f"Batch analysis failed: {e}")
-            return []
+                return final_results
+
+            except Exception as e:
+                logger.error(f"Batch analysis failed (Attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    if progress_callback:
+                        progress_callback("大模型请求失败，重试中……继续喝咖啡吧☕️~")
+                    time.sleep(retry_delay)
+                else:
+                    return []
 
     def search(self, user_query: str, progress_callback=None):
         # Pipeline
@@ -372,9 +382,9 @@ class SearchMixin:
         # 2. Query Decomposition
         if progress_callback:
             progress_callback("正在进行查询语义分解...")
-        print(f"Step 2: Decomposing query: {user_query}")
+        logger.info(f"Step 2: Decomposing query: {user_query}")
         query_plan = self.query_expansion(user_query)
-        print("Query Plan:", json.dumps(query_plan, ensure_ascii=False, indent=2))
+        logger.debug(f"Query Plan: {json.dumps(query_plan, ensure_ascii=False, indent=2)}")
 
         # 3. Retrieve
         # 3. Retrieve
@@ -383,18 +393,18 @@ class SearchMixin:
         
         # Step 3.1: Abstract Retrieval
         # First, retrieve top 300 candidates based on detailed query
-        print("Step 3.1: Retrieving abstracts...")
+        logger.info("Step 3.1: Retrieving abstracts...")
         # Use simple query instead of decomposed conditions
         abstract_candidates = self.retrieve_abstracts(user_query)
-        
+        progress_callback("摘要初筛完成，正在进行全文精检...")
         # Step 3.2: Full Text Retrieval (Filtered by Abstract Candidates)
         # Using the existing retrieve logic, but passing the IDs from Step 3.1
-        print("Step 3.2: Retrieving full text candidates...")
+        logger.info("Step 3.2: Retrieving full text candidates...")
         
         filter_ids = list(abstract_candidates.keys()) if abstract_candidates else None
         
         if not filter_ids:
-            print("Warning: No candidates found in abstract search. Proceeding with full search or returning empty?")
+            logger.warning("Warning: No candidates found in abstract search. Proceeding with full search or returning empty?")
             # For now, if no abstracts found, we might want to default to full search OR return empty.
             # let's proceed with full search (filter_ids=None) if that's safer, OR return empty.
             # Given "optimizing", let's assume if abstract fails, valid response is empty strictly? 
@@ -411,9 +421,9 @@ class SearchMixin:
 
         # 4. Verify
         if progress_callback:
-            progress_callback(f"初筛找到 {len(candidates)} 个相关文档，正在调用大模型进行深度比对与验证...该过程耗时较长，先喝杯咖啡吧！☕️")
-        print(f"Step 4: Verifying {len(candidates)} candidates with LLM (Analysis Model)...")
-        final_results = self.analyze_candidates(candidates, user_query)
+            progress_callback(f"找到 {len(candidates)} 个相关文档，正在调用大模型进行深度比对与验证...该过程耗时较长，先喝杯咖啡吧！☕️")
+        logger.info(f"Step 4: Verifying {len(candidates)} candidates with LLM (Analysis Model)...")
+        final_results = self.analyze_candidates(candidates, user_query, progress_callback=progress_callback)
 
         if progress_callback:
             progress_callback("正在整理最终结果...")

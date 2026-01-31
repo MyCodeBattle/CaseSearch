@@ -5,6 +5,7 @@
 """
 import os
 from pathlib import Path
+from loguru import logger
 
 # 获取 prompts 目录的绝对路径
 # 假设 current file is in modules/, so parent is project root
@@ -18,7 +19,7 @@ def _load_prompt(filename: str) -> str:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
     except Exception as e:
-        print(f"Error loading prompt '{filename}': {e}")
+        logger.error(f"Error loading prompt '{filename}': {e}")
         return ""
 
 # ==============================================================================

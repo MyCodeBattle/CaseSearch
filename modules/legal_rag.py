@@ -7,6 +7,7 @@ import uuid
 import chromadb
 from dotenv import load_dotenv
 from openai import OpenAI
+from loguru import logger
 
 # Load env vars
 load_dotenv()
@@ -69,7 +70,7 @@ class LegalRAG(IndexBuilderMixin, SearchMixin):
                     with open(filename, "w", encoding="utf-8") as f:
                         f.write(resp.model_dump_json(indent=2))
                 except Exception as e:
-                    print(f"Warning: Failed to save intermediate embedding response: {e}")
+                    logger.warning(f"Warning: Failed to save intermediate embedding response: {e}")
                 
                 # Deep conversion to ensure native python types
                 final_embeddings = []
@@ -86,7 +87,7 @@ class LegalRAG(IndexBuilderMixin, SearchMixin):
                     
                     final_embeddings.append(emb)
                 
-                print(f"DEBUG: Embedding Type: {type(final_embeddings)}, Element Type: {type(final_embeddings[0])}, Inner Type: {type(final_embeddings[0][0])}")
+                logger.debug(f"DEBUG: Embedding Type: {type(final_embeddings)}, Element Type: {type(final_embeddings[0])}, Inner Type: {type(final_embeddings[0][0])}")
                 return final_embeddings
             
             def embed_query(self, input: Any) -> List[float]:
@@ -129,7 +130,7 @@ class LegalRAG(IndexBuilderMixin, SearchMixin):
             name="legal_abstracts",
             embedding_function=self.ef
         )
-        print(f"DEBUG: Initialized Alibaba Embedding Function with model='{model_name}', dim=2048")
+        logger.debug(f"DEBUG: Initialized Alibaba Embedding Function with model='{model_name}', dim=2048")
         
 if __name__ == "__main__":
     # Test script
@@ -139,7 +140,7 @@ if __name__ == "__main__":
     query = "司法拍卖取得股份后违规减持"
     results = rag.search(query)
     
-    print(f"\nFound {len(results)} matches:")
+    logger.info(f"\nFound {len(results)} matches:")
     for r in results:
-        print(f"- [{r['score']}] {r['filename']}: {r['reason']}")
+        logger.info(f"- [{r['score']}] {r['filename']}: {r['reason']}")
 

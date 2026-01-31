@@ -1,6 +1,7 @@
 import yaml
 import os
 from pathlib import Path
+from loguru import logger
 
 def load_config():
     """
@@ -34,7 +35,7 @@ def load_config():
                     else:
                         config[key] = value
         except Exception as e:
-            print(f"Warning: Failed to load secrets.yaml: {e}")
+            logger.warning(f"Warning: Failed to load secrets.yaml: {e}")
 
     # 3. 环境变量覆盖 (Render 部署使用)
     openai_api_key = os.environ.get('OPENAI_API_KEY')

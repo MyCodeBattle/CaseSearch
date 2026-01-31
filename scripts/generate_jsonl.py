@@ -3,6 +3,7 @@ import sys
 import json
 import argparse
 from pathlib import Path
+from loguru import logger
 
 SYSTEM_PROMPT = """# Role 
 你是一个专业的证券合规数据分析师。你的任务是阅读《中国证监会行政处罚决定书》，并生成一份专注于**违规事实**的案件摘要。 
@@ -56,10 +57,10 @@ def read_file_content(file_path):
             with open(file_path, 'r', encoding='gbk') as f:
                 return f.read()
         except Exception as e:
-            print(f"警告: 无法读取文件 {file_path}: {e}")
+            logger.warning(f"警告: 无法读取文件 {file_path}: {e}")
             return None
     except Exception as e:
-        print(f"警告: 无法读取文件 {file_path}: {e}")
+        logger.warning(f"警告: 无法读取文件 {file_path}: {e}")
         return None
 
 
@@ -67,21 +68,21 @@ def generate_batch_requests(input_dir, output_file):
     input_path = Path(input_dir)
     
     if not input_path.exists():
-        print(f"错误: 目录不存在: {input_dir}")
+        logger.error(f"错误: 目录不存在: {input_dir}")
         sys.exit(1)
     
     if not input_path.is_dir():
-        print(f"错误: 路径不是目录: {input_dir}")
+        logger.error(f"错误: 路径不是目录: {input_dir}")
         sys.exit(1)
     
     files = list(input_path.iterdir())
     files = [f for f in files if f.is_file()]
     
     if not files:
-        print(f"警告: 目录中没有找到文件: {input_dir}")
+        logger.warning(f"警告: 目录中没有找到文件: {input_dir}")
         sys.exit(0)
     
-    print(f"找到 {len(files)} 个文件待处理...")
+    logger.info(f"找到 {len(files)} 个文件待处理...")
     
     batch_requests = []
     skipped_count = 0
@@ -94,7 +95,7 @@ def generate_batch_requests(input_dir, output_file):
             continue
         
         if not content.strip():
-            print(f"警告: 跳过空文件 {file_path.name}")
+            logger.warning(f"警告: 跳过空文件 {file_path.name}")
             skipped_count += 1
             continue
             
@@ -131,17 +132,17 @@ def generate_batch_requests(input_dir, output_file):
         }
         
         batch_requests.append(request)
-        print(f"处理中 [{idx}/{len(files)}]: {file_path.name} -> {custom_id}")
+        logger.info(f"处理中 [{idx}/{len(files)}]: {file_path.name} -> {custom_id}")
     
-    print(f"\n成功生成 {len(batch_requests)} 个请求")
+    logger.info(f"\n成功生成 {len(batch_requests)} 个请求")
     if skipped_count > 0:
-        print(f"跳过 {skipped_count} 个文件")
+        logger.info(f"跳过 {skipped_count} 个文件")
     
     with open(output_file, 'w', encoding='utf-8') as f:
         for request in batch_requests:
             f.write(json.dumps(request, ensure_ascii=False) + '\n')
     
-    print(f"\nJSONL文件已生成: {output_file}")
+    logger.info(f"\nJSONL文件已生成: {output_file}")
 
 
 def main():

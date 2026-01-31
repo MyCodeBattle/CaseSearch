@@ -2,6 +2,7 @@ import sys
 import os
 import readline
 from pathlib import Path
+from loguru import logger
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -19,30 +20,30 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    print(f"Initializing Test RAG on {args.data_dir}...")
+    logger.info(f"Initializing Test RAG on {args.data_dir}...")
     
     # Initialize RAG
     rag = get_test_rag(data_dir=args.data_dir, allow_reset=False)
 
     
     def run_search(query_text):
-        print(f"\n[Step 2-4] Running Search for: {query_text}")
+        logger.info(f"\n[Step 2-4] Running Search for: {query_text}")
         results = rag.search(query_text)
         
-        print(f"\nFound {len(results)} matches:")
+        logger.info(f"\nFound {len(results)} matches:")
         for r in results:
-            print(f"File: {r['filename']}")
-            print(f"Score: {r['score']}")
-            print(f"Reason: {r['reason']}")
-            print("-" * 50)
+            logger.info(f"File: {r['filename']}")
+            logger.info(f"Score: {r['score']}")
+            logger.info(f"Reason: {r['reason']}")
+            logger.info("-" * 50)
 
     # 2. Search
     if args.query:
         run_search(args.query)
     else:
         # Interactive mode
-        print("\n=== 进入交互式检索模式 ===")
-        print("提示：输入 'q' 退出")
+        logger.info("\n=== 进入交互式检索模式 ===")
+        logger.info("提示：输入 'q' 退出")
         while True:
             try:
                 prompt = f"\n请输入检索语句 (输入 'q' 退出): "
@@ -57,5 +58,5 @@ if __name__ == "__main__":
                     continue
                 run_search(user_input)
             except KeyboardInterrupt:
-                print("\nExiting...")
+                logger.info("\nExiting...")
                 break

@@ -3,6 +3,7 @@ import os
 import argparse
 from pathlib import Path
 from dotenv import load_dotenv
+from loguru import logger
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -31,7 +32,7 @@ def main():
 
     # Patch config if target_data_dir is determined
     if target_data_dir:
-        print(f"Target data directory: {target_data_dir}")
+        logger.info(f"Target data directory: {target_data_dir}")
         original_load_config = modules.config_loader.load_config
         
         def patched_load_config():
@@ -46,30 +47,30 @@ def main():
         legal_rag.load_config = patched_load_config
     else:
         # Fallback to default config (which uses 'data' or whatever is in root data_dir)
-        print("Using default data directory from config.")
+        logger.info("Using default data directory from config.")
         from modules import legal_rag
 
-    print("Initializing LegalRAG...")
+    logger.info("Initializing LegalRAG...")
     try:
         rag = legal_rag.LegalRAG()
         
         # If abstracts flag is set, only build abstract index
         if args.abstracts:
-            print("\nStarting Abstract Index Build...")
+            logger.info("\nStarting Abstract Index Build...")
             jsonl_path = rag.data_dir / "abstract" / "results.jsonl"
             rag.build_abstract_index(str(jsonl_path), limit=args.limit)
-            print("\nAbstract Build Complete.")
+            logger.info("\nAbstract Build Complete.")
             return
 
-        print("\nStarting Index Build...")
+        logger.info("\nStarting Index Build...")
         if args.force:
-            print("Force rebuild enabled.")
+            logger.info("Force rebuild enabled.")
         
         rag.build_index(force_rebuild=args.force)
-        print("\nBuild Complete.")
+        logger.info("\nBuild Complete.")
         
     except Exception as e:
-        print(f"\nError during build: {e}")
+        logger.error(f"\nError during build: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

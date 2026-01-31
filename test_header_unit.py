@@ -3,6 +3,7 @@ import sys
 import os
 import unittest
 from unittest.mock import MagicMock, patch
+from loguru import logger
 
 sys.path.append(os.getcwd())
 from modules.legal_rag import LegalRAG
@@ -47,7 +48,7 @@ class TestHeaderExtraction(unittest.TestCase):
             self.assertEqual(len(results), 1)
             self.assertIn('header_info', results[0])
             self.assertEqual(results[0]['header_info'], "This is the Header Information")
-            print("SUCCESS: Header info extracted correctly:", results[0]['header_info'])
+            logger.info(f"SUCCESS: Header info extracted correctly: {results[0]['header_info']}")
             
         finally:
             if os.path.exists(test_filename):

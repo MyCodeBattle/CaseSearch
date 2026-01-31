@@ -7,6 +7,7 @@ from typing import List
 from tqdm import tqdm
 
 from .case_loader import get_available_types, load_cases_by_type
+from loguru import logger
 
 
 class IndexBuilderMixin:
@@ -37,16 +38,16 @@ class IndexBuilderMixin:
         """
         # Check if already indexed
         if not force_rebuild and self.collection.count() > 0:
-            print("Index exists. Checking for new files to add...")
+            logger.info("Index exists. Checking for new files to add...")
             # Do not return, continue to incremental logic
         else:
-            print("Building index...")
+            logger.info("Building index...")
         start_time = time.time()
 
         # 1. Load all cases
         all_cases = []
         types = get_available_types()
-        print(f"Loading cases from types: {types}")
+        logger.info(f"Loading cases from types: {types}")
 
         for t in types:
             cases = load_cases_by_type(t)
@@ -55,10 +56,10 @@ class IndexBuilderMixin:
                 all_cases.append(c)
 
         if not all_cases:
-            print("No cases found to index. Exiting.")
+            logger.warning("No cases found to index. Exiting.")
             return
 
-        print(f"Loaded {len(all_cases)} cases. processing...")
+        logger.info(f"Loaded {len(all_cases)} cases. processing...")
 
         # 2. Smart Indexing (Incremental)
         # Don't delete collection blindly. Check what exists.
@@ -81,8 +82,9 @@ class IndexBuilderMixin:
                     if m:
                         existing_doc_ids.add(m.get('doc_id'))
             print(f"Found {len(existing_doc_ids)} existing documents in Vector Store.")
+            logger.info(f"Found {len(existing_doc_ids)} existing documents in Vector Store.")
         except Exception as e:
-            print(f"Error checking existing documents: {e}")
+            logger.error(f"Error checking existing documents: {e}")
 
         documents = []
         metadatas = []
@@ -144,25 +146,25 @@ class IndexBuilderMixin:
 
         # No remaining chunks to add outside the loop because we flush per case
 
-        print(f"Indexed {chunk_counter} chunks in Vector Store.")
+        logger.info(f"Indexed {chunk_counter} chunks in Vector Store.")
 
         duration = time.time() - start_time
-        print(f"Index built in {duration:.2f} seconds.")
+        logger.info(f"Index built in {duration:.2f} seconds.")
 
     def build_abstract_index(self, jsonl_path: str, limit: int = None):
         """
         Builds the vector index for abstracts from a JSONL file.
         """
         if not os.path.exists(jsonl_path):
-            print(f"JSONL file not found at {jsonl_path}")
+            logger.error(f"JSONL file not found at {jsonl_path}")
             return
 
-        print(f"Building abstract index from {jsonl_path}...")
+        logger.info(f"Building abstract index from {jsonl_path}...")
         start_time = time.time()
 
         # 1. Build a map of ID -> Filepath from total_texts
         # IDs are the leading digits of filenames
-        print("Scanning total_texts for source files...")
+        logger.info("Scanning total_texts for source files...")
         id_to_path = {}
         # Assuming cases are in subdirectories of data_dir or directly in data_dir
         # We'll use os.walk to find all txt files
@@ -186,7 +188,7 @@ class IndexBuilderMixin:
                             full_path = str(Path(root) / file)
                             id_to_path[file_id] = full_path
 
-        print(f"Mapped {len(id_to_path)} source files by ID.")
+        logger.info(f"Mapped {len(id_to_path)} source files by ID.")
 
         # Load existing IDs to avoid duplicates
         existing_ids = set()
@@ -195,9 +197,9 @@ class IndexBuilderMixin:
             existing_data = self.abstract_collection.get()
             if existing_data and existing_data['ids']:
                 existing_ids = set(existing_data['ids'])
-            print(f"Found {len(existing_ids)} existing chunks in Abstract Vector Store.")
+            logger.info(f"Found {len(existing_ids)} existing chunks in Abstract Vector Store.")
         except Exception as e:
-            print(f"Error checking existing abstracts: {e}")
+            logger.error(f"Error checking existing abstracts: {e}")
 
         documents = []
         metadatas = []
@@ -209,11 +211,11 @@ class IndexBuilderMixin:
         with open(jsonl_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
-        print(f"Found {len(lines)} abstracts to process.")
+        logger.info(f"Found {len(lines)} abstracts to process.")
         
         if limit and limit > 0:
             lines = lines[:limit]
-            print(f"Limiting to first {limit} abstracts.")
+            logger.info(f"Limiting to first {limit} abstracts.")
 
 
         for line in tqdm(lines, desc="Indexing Abstracts"):
@@ -308,5 +310,5 @@ class IndexBuilderMixin:
 
         # No remaining chunks to add outside loop as we flush per abstract
 
-        print(f"Indexed {count} abstracts in 'legal_abstracts' collection.")
-        print(f"Abstract Index built in {time.time() - start_time:.2f} seconds.")
+        logger.info(f"Indexed {count} abstracts in 'legal_abstracts' collection.")
+        logger.info(f"Abstract Index built in {time.time() - start_time:.2f} seconds.")

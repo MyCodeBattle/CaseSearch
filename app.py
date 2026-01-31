@@ -5,12 +5,19 @@ Flask 主应用
 import json
 import queue
 import threading
+import sys
 from io import BytesIO
 from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from loguru import logger
+
+# Configure logger
+logger.remove()
+logger.add(sys.stderr, level="INFO")
+logger.add("app.log", rotation="10 MB", level="DEBUG")
 
 # 加载环境变量 (.env)
 load_dotenv()
@@ -25,9 +32,9 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # 初始化 RAG 系统 (全局单例)
-print("正在初始化 LegalRAG 系统，请稍候...")
+logger.info("正在初始化 LegalRAG 系统，请稍候...")
 rag_system = LegalRAG()
-print("LegalRAG 初始化完成")
+logger.info("LegalRAG 初始化完成")
 
 
 @app.route('/')
@@ -84,12 +91,12 @@ def search_stream():
         # 在后台线程中执行 RAG 搜索
         def run_rag_search():
             try:
-                print(f"开始 RAG 检索: {query}")
+                logger.info(f"开始 RAG 检索: {query}")
                 # 传入回调函数获取真实进度
                 results = rag_system.search(query, progress_callback=progress_callback)
                 msg_queue.put(('result', results))
             except Exception as e:
-                print(f"RAG search failed: {e}")
+                logger.error(f"RAG search failed: {e}")
                 msg_queue.put(('error', str(e)))
         
         search_thread = threading.Thread(target=run_rag_search)
@@ -269,12 +276,12 @@ def export_excel():
 
 
 if __name__ == '__main__':
-    print("=" * 50)
-    print("行政处罚决定书类案检索系统 (Powered by LegalRAG)")
-    print("=" * 50)
+    logger.info("=" * 50)
+    logger.info("行政处罚决定书类案检索系统 (Powered by LegalRAG)")
+    logger.info("=" * 50)
     
-    print("\n启动服务...")
-    print("访问地址: http://localhost:5001")
-    print("=" * 50)
+    logger.info("启动服务...")
+    logger.info("访问地址: http://localhost:5001")
+    logger.info("=" * 50)
     
     app.run(debug=True, host='0.0.0.0', port=5001, threaded=True)
