@@ -312,7 +312,7 @@ class SearchMixin:
         # Build Case Text
         cases_text = ""
         for i, case in enumerate(cases, 1):
-            cases_text += f"\n\n===== 案例 {i}: {case['filename']} =====\n{case['content']}\n"
+            cases_text += f"\n\n===== 案例 {i}: {case['header_info']} =====\n{case['content']}\n"
 
         final_prompt = SIMILARITY_SEARCH_PROMPT.format(
             query=query,
