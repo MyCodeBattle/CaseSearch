@@ -35,7 +35,7 @@ openai:
 # 模型配置 - 分析模型
 analysis:
   base_url: "https://api.qiyiguo.uk/v1"
-  model: "[1000k按次计费]gemini-3-pro-preview"
+  model: "[A-1000k]gemini-3-pro-preview"
 
 # 模型配置 - 向量模型
 embedding:

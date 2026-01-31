@@ -6,8 +6,41 @@ import jieba
 from openai import OpenAI
 
 from .prompts import QUERY_EXPANSION_PROMPT, SIMILARITY_SEARCH_PROMPT
-from .similarity_search import batch_cases_by_chars
 from loguru import logger
+
+def batch_cases_by_chars(cases: List[Dict], max_chars: int) -> List[List[Dict]]:
+    """
+    按字数阈值将案例分批
+    
+    Args:
+        cases: 案例列表
+        max_chars: 每批最大字数
+    
+    Returns:
+        分批后的案例列表
+    """
+    batches = []
+    current_batch = []
+    current_chars = 0
+    
+    for case in cases:
+        case_chars = case['char_count']
+        
+        # 如果当前案例加入后会超过阈值，且当前批次不为空，先保存当前批次
+        if current_chars + case_chars > max_chars and current_batch:
+            batches.append(current_batch)
+            current_batch = []
+            current_chars = 0
+        
+        current_batch.append(case)
+        current_chars += case_chars
+    
+    # 最后一批
+    if current_batch:
+        batches.append(current_batch)
+    
+    return batches
+
 
 
 class SearchMixin:
@@ -37,6 +70,7 @@ class SearchMixin:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0,
+                stream=False,
                 response_format={"type": "json_object"}
             )
             content = response.choices[0].message.content
@@ -306,13 +340,13 @@ class SearchMixin:
         api_key = analysis_config.get('api_key') or self.config['openai']['api_key']
         base_url = analysis_config.get('base_url') or self.config['openai']['base_url']
         model = analysis_config.get('model') or self.config['openai']['model']
-
+        # client = OpenAI(api_key=api_key, base_url=base_url)
         client = OpenAI(api_key=api_key, base_url=base_url)
 
         # Build Case Text
         cases_text = ""
         for i, case in enumerate(cases, 1):
-            cases_text += f"\n\n===== 案例 {i}: {case['header_info']} =====\n{case['content']}\n"
+            cases_text += f"\n\n===== filename:{case['filename']} =====\n{case['content']}\n"
 
         final_prompt = SIMILARITY_SEARCH_PROMPT.format(
             query=query,
@@ -333,6 +367,7 @@ class SearchMixin:
                         {"role": "user", "content": final_prompt}
                     ],
                     temperature=0,  # Matching similarity_search.py
+                    stream=False,
                     response_format={"type": "json_object"}
                 )
 
