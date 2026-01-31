@@ -45,11 +45,15 @@ instance/
 # 临时数据或输出 (如果不需要提交)
 data/
 *.db
-*.txt
 *.xlsx
 
 # Large data directories
 total_texts/
+intermediate_results/
 
 # Secrets
 secrets.yaml
+
+# ai相关
+AGENTS.md
+

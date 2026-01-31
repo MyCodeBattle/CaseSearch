@@ -17,6 +17,8 @@ def main():
     parser = argparse.ArgumentParser(description="Build ChromaDB index for Legal RAG")
     parser.add_argument("--data-dir", type=str, help="Override data directory (default: read from config.yaml)")
     parser.add_argument("--force", action="store_true", help="Force rebuild of the index")
+    parser.add_argument("--abstracts", action="store_true", help="Build index for abstracts")
+    parser.add_argument("--limit", type=int, help="Limit number of items to process (for testing)")
     
     args = parser.parse_args()
     
@@ -51,6 +53,14 @@ def main():
     try:
         rag = legal_rag.LegalRAG()
         
+        # If abstracts flag is set, only build abstract index
+        if args.abstracts:
+            print("\nStarting Abstract Index Build...")
+            jsonl_path = rag.data_dir / "abstract" / "results.jsonl"
+            rag.build_abstract_index(str(jsonl_path), limit=args.limit)
+            print("\nAbstract Build Complete.")
+            return
+
         print("\nStarting Index Build...")
         if args.force:
             print("Force rebuild enabled.")
